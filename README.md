@@ -1,0 +1,2 @@
+# fastQAPy
+fastQAP in python
