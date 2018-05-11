@@ -4,10 +4,10 @@ from scipy import optimize
 
 def fun(alpha, A, B, P, Q) :
     P_m = P + alpha*Q
-    return numpy.trace(A @ P_m @ B.T @ P_m.T)
+    return - numpy.trace(A @ P_m @ B.T @ P_m.T)
 
 def grad(A, B, P) :
-    return (A @ P @ B.T) - (A.T @ P @ B)
+    return - (A @ P @ B.T) - (A.T @ P @ B)
 
 def hungarian_alg(grad_P) :
     #The method used is the Hungarian algorithm, also known as the Munkres or Kuhn-Munkres algorithm.
@@ -18,7 +18,6 @@ def hungarian_alg(grad_P) :
     return Q_i_T.T
 
 def min_arg(A, B, P, Q) :
-    #alpha = 1
     alpha = optimize.fminbound(fun, 0, 1, [A, B, P, Q])
     return alpha
 
@@ -26,8 +25,10 @@ def get_step(P_next, P):
     return numpy.linalg.norm(P_next-P, 'fro')
 
 def permu_projector(P) :
-    #最大化问题与最小化问题其实是一样的
-    #找到系数矩阵中最大的元素，然后使用最大元素分别减去矩阵中元素，这样最大化问题就化为最小化问题，同样可以使用匈牙利算法。
+    #Maximum is the same as minimum problem
+    #We find the maximum element m in the matrix P
+    #then let new P = m * [1] - P
+    #So far the problem has turned into a minimum assign problem, use the same method above.
     N= P.shape
     P_reverse = numpy.max(P) * numpy.ones(N) - P
     assign_idx, assign_vec = optimize.linear_sum_assignment(P_reverse)
@@ -54,18 +55,39 @@ def fast_qap(A, B, IMAX, sigma) :
         P = P_next.copy()
         i = i + 1
     result_P  = permu_projector(P)
+    #print(result_P)
     return get_QAP_score(A, B, result_P)
 
 
 def  main(argv=None) :
     if argv is None:
         argv = sys.argv
-    A = numpy.random.randn(10,10)
-    B = numpy.random.randn(10,10)
+    A = numpy.array([[1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+                     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+                     [1, 0.5, 1, 1, 1, 1, 0.5, 1, 1, 1],
+                     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+                     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+                     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+                     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+                     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+                     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+                     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]])
 
-    print(A)
-    print(B)
-    print(fast_qap(A, B, 10, 1.0e-4))
+    B = numpy.array([[1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+                     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+                     [1, 0, 1, 1, 1, 1, 1, 1, 1, 1],
+                     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+                     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+                     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+                     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+                     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+                     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+                     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]])
+                       
+    C = A.copy()
+   
+    print(fast_qap(A, B, 50, 1.0e-7))
+    print(fast_qap(A, C, 50, 1.0e-7))
 
 if __name__ == "__main__":
    sys.exit(main())
