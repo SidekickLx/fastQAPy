@@ -4,6 +4,7 @@ import sys
 import getopt
 import numpy
 from scipy import optimize
+from graphAnalyzer import graphAna
 
 
 def normolize_mat(M):
@@ -63,7 +64,7 @@ def get_QAP_score(A, B, P):
     return numpy.linalg.norm(gap, 'fro')
 
 
-def fast_qap(A, B, IMAX, sigma):
+def fast_qap(A, B, diff_map, IMAX, sigma):
     # A, B should be n*n matrix.
     N = A.shape
     P = numpy.ones(N)/N[1]
@@ -74,7 +75,8 @@ def fast_qap(A, B, IMAX, sigma):
     B_norm = normolize_mat(B)
     while (i < IMAX) and (step >= sigma):
         grad_P = grad(A_norm, B_norm, P)
-        Q_i = hungarian_alg(grad_P.T)
+        Q_i = hungarian_alg(grad_P.T + diff_map)  # where I made a modification
+        Q_i = Q_i - P                     # The paper might make a mistake here
         P_next = P + min_arg(A_norm, B_norm, P, Q_i) * Q_i
         step = get_step(P_next, P)
         P = P_next.copy()
@@ -84,43 +86,45 @@ def fast_qap(A, B, IMAX, sigma):
 
 
 def main(argv=None):
-    inputfile = ""
     try:
-        opts, args = getopt.getopt(argv, "i:", ["infile="])
+        opts, args = getopt.getopt(argv, "i1:i2:", ["infile1=", "infile2="])
     except getopt.GetoptError:
         print("Error: test_arg.py -i <inputfile>")
         return 2
     for opt, arg in opts:
-        if opt in ("-i", "--infile"):
-            inputfile = arg
-    print("Parsing file", inputfile, "...")
+        if opt in ("-i1", "--infile1"):
+            inputfile1 = arg
+        if opt in ("-i2", "--infile2"):
+            inputfile2 = arg
 
-    A = numpy.array([[1, 1, 0, 0, 1, 0, 0, 0, 1, 0],
-                     [1, 0, 0, 0, 0, 0, 1, 0, 0, 0],
-                     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                     [0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
-                     [1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-                     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                     [0, 1, 0, 1, 0, 0, 0, 0, 0, 0],
-                     [0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-                     [1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                     [0, 0, 0, 0, 1, 0, 0, 1, 0, 0]])
+    # A = numpy.array([[1, 1, 0, 0, 1, 0, 0, 0, 1, 0],
+    #                  [1, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+    #                  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    #                  [0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+    #                  [1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+    #                  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    #                  [0, 1, 0, 1, 0, 0, 0, 0, 0, 0],
+    #                  [0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+    #                  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    #                  [0, 0, 0, 0, 1, 0, 0, 1, 0, 0]])
 
-    B = numpy.array([[1, 1, 0, 0, 1, 0, 0, 0, 1, 0],
-                     [1, 0, 0, 0, 0, 0, 1, 0, 0, 0],
-                     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                     [0, 0, 0, 0, 0, 0, 1, 0, 0, 1],
-                     [1, 0, 0, 0, 0, 1, 0, 0, 0, 1],
-                     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                     [0, 1, 0, 1, 0, 0, 0, 0, 0, 0],
-                     [0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-                     [1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                     [0, 0, 0, 1, 1, 0, 0, 1, 0, 0]])
+    # B = numpy.array([[1, 1, 0, 0, 1, 0, 0, 0, 1, 0],
+    #                  [1, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+    #                  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    #                  [0, 0, 0, 0, 0, 0, 1, 0, 0, 1],
+    #                  [1, 0, 0, 0, 0, 1, 0, 0, 0, 1],
+    #                  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    #                  [0, 1, 0, 1, 0, 0, 0, 0, 0, 0],
+    #                  [0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+    #                  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    #                  [0, 0, 0, 1, 1, 0, 0, 1, 0, 0]])
 
-    # C = numpy.random.random((10,10))
+    A, node_stmt_list_A = graphAna.dot_file_parser(inputfile1)
+    B, node_stmt_list_B = graphAna.dot_file_parser(inputfile2)
 
-    print("score:", fast_qap(A, B, 30, 1.0e-7))
-    # print(fast_qap(A, C, 50, 1.0e-7))
+    diff_map = graphAna.analysor(node_stmt_list_A, node_stmt_list_B)
+
+    print("score:", fast_qap(A, B, diff_map, 30, 1.0e-7))
     return 0
 
 

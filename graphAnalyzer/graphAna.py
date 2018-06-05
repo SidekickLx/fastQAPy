@@ -1,4 +1,3 @@
-import sys
 import pydot
 import numpy
 import re
@@ -24,6 +23,10 @@ def levenshteinDistance(s1, s2):
 
 
 def dot_file_parser(filename):
+    '''
+    This funciton parse .dot file,
+    generate adj Adjacency matrix and node stmt list.
+    '''
     graphlst = pydot.graph_from_dot_file(filename)
     graph = graphlst[0]
     nodes = graph.get_nodes()
@@ -41,23 +44,22 @@ def dot_file_parser(filename):
     return adj_matrix, node_stmt_list
 
 
-def main(argv=None):
-    inputfile1 = ("C:\\Users\\lixue\\Project\\FastQAP\\fastQAPy\\graphAnalyzer"
-                  "\\cfg.fib.dot")
-    inputfile2 = ("C:\\Users\\lixue\\Project\\FastQAP\\fastQAPy\\graphAnalyzer"
-                  "\\cfg.fib.dot")
-    adj_matrix_A, node_stmt_list_A = dot_file_parser(inputfile1)
-    adj_matrix_B, node_stmt_list_B = dot_file_parser(inputfile2)
+def analysor(node_stmt_list_A, node_stmt_list_B):
+    '''
+    This function generate a diff map for two graphs.
+    Use leven-shtein Distance Algorithm.
+    '''
     diff_map = numpy.zeros((len(node_stmt_list_A), len(node_stmt_list_B)))
     for i_A, node_A in enumerate(node_stmt_list_A):
         for i_B, node_B in enumerate(node_stmt_list_B):
             diff = levenshteinDistance(node_A, node_B)
-            if(diff < len(node_A) and diff < len(node_B)):
-                diff_map[i_A][i_B] = diff
-            else:
-                diff_map[i_A][i_B] = float("inf")
-    print(diff_map)
+            diff_map[i_A][i_B] = diff
+            # We should use below after we solve the insertions and deletions.
+            # if(diff < len(node_A) and diff < len(node_B)):
+            #     diff_map[i_A][i_B] = diff
+            # else:
+            #     diff_map[i_A][i_B] = float("inf")
+    return diff_map
 
 
-if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+# if __name__ == "__main__":
