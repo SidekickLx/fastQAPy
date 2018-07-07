@@ -11,4 +11,6 @@ A python implementation for fast approximate QAP
 ## Results
 
 In figure 2 we can see that the algorithm with string edit distance has much better result.
+
 ![figure 2](./screenshot.png)
+(D*P should be trace(DP), which means the sumary of edit distance after mapping every node of A to nodes of B 
