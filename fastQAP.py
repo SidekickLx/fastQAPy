@@ -1,10 +1,13 @@
 # -*- coding:utf-8 -*-
 
 import sys
-import getopt
+import random
 import numpy
 from scipy import optimize
-from graphAnalyzer import graphAna
+# import getopt
+# from graphAnalyzer import graphAna
+# import time
+# import matplotlib.pyplot as plt
 
 
 def normolize_mat(M):
@@ -12,20 +15,22 @@ def normolize_mat(M):
     return (M-mmin)/(mmax-mmin)
 
 
-def fun(alpha, A, B, P, Q):
+def fun(alpha, A, B, P, Q, D):
     P_m = P + alpha*Q
-    return -numpy.trace(A @ P_m @ B.T @ P_m.T)
+    return -numpy.trace(A @ P_m @ B.T @ P_m.T)+numpy.trace(D @ P_m)
 
 
-def grad(A, B, P):
-    return -(A @ P @ B.T) - (A.T @ P @ B)
+def grad(A, B, P, D):
+    return -(A @ P @ B.T) - (A.T @ P @ B) + D.T
 
 
 def hungarian_alg(grad_P):
-    # The method used is the Hungarian algorithm,
+    '''
+    The hungarian algorithm is implemented by linear_sum_assignment
+    from scipy.optimize module
+    '''
+    # The method used Hungarian algorithm,
     # also known as the Munkres or Kuhn-Munkres algorithm.
-    print(grad_P)
-    print("=========================")
     assign_idx, assign_vec = optimize.linear_sum_assignment(grad_P)
     Q_i_T = numpy.zeros(grad_P.shape)
     for row in assign_idx:
@@ -33,8 +38,8 @@ def hungarian_alg(grad_P):
     return Q_i_T.T
 
 
-def min_arg(A, B, P, Q):
-    alpha = optimize.fminbound(fun, 0, 1, [A, B, P, Q])
+def min_arg(A, B, P, Q, D):
+    alpha = optimize.fminbound(fun, 0, 1, [A, B, P, Q, D])
     return alpha
 
 
@@ -59,12 +64,12 @@ def permu_projector(P):
     return P_f
 
 
-def get_QAP_score(A, B, P):
+def get_QAP_score(A, B, P, D):
     gap = A - P @ B @ P.T
-    return numpy.linalg.norm(gap, 'fro')
+    return numpy.linalg.norm(gap, 'fro') + numpy.trace(D @ P)
 
 
-def fast_qap(A, B, diff_map, IMAX, sigma):
+def fast_qap(A, B, D, IMAX, sigma):
     # A, B should be n*n matrix.
     N = A.shape
     P = numpy.ones(N)/N[1]
@@ -74,57 +79,64 @@ def fast_qap(A, B, diff_map, IMAX, sigma):
     A_norm = normolize_mat(A)
     B_norm = normolize_mat(B)
     while (i < IMAX) and (step >= sigma):
-        grad_P = grad(A_norm, B_norm, P)
-        Q_i = hungarian_alg(grad_P.T + diff_map)  # where I made a modification
-        Q_i = Q_i - P                     # The paper might make a mistake here
-        P_next = P + min_arg(A_norm, B_norm, P, Q_i) * Q_i
+        grad_P = grad(A_norm, B_norm, P, D)
+        Q_i = hungarian_alg(grad_P.T)  # where I made a modification
+        # Q_i = Q_i - P                # The paper might make a mistake here
+        P_next = P + min_arg(A_norm, B_norm, P, Q_i, D) * Q_i
         step = get_step(P_next, P)
         P = P_next.copy()
         i = i + 1
     result_P = permu_projector(P)
-    return get_QAP_score(A_norm, B_norm, result_P)
+    return get_QAP_score(A_norm, B_norm, result_P, D), result_P
 
 
 def main(argv=None):
-    try:
-        opts, args = getopt.getopt(argv, "i1:i2:", ["infile1=", "infile2="])
-    except getopt.GetoptError:
-        print("Error: test_arg.py -i <inputfile>")
-        return 2
-    for opt, arg in opts:
-        if opt in ("-i1", "--infile1"):
-            inputfile1 = arg
-        if opt in ("-i2", "--infile2"):
-            inputfile2 = arg
+    # try:
+    #     opts, args = getopt.getopt(argv, "i1:i2:", ["infile1=", "infile2="])
+    # except getopt.GetoptError:
+    #     print("Error: test_arg.py -i <inputfile>")
+    #     return 2
+    # for opt, arg in opts:
+    #     if opt in ("-i1", "--infile1"):
+    #         inputfile1 = arg
+    #     if opt in ("-i2", "--infile2"):
+    #         inputfile2 = arg
 
-    # A = numpy.array([[1, 1, 0, 0, 1, 0, 0, 0, 1, 0],
-    #                  [1, 0, 0, 0, 0, 0, 1, 0, 0, 0],
-    #                  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    #                  [0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
-    #                  [1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-    #                  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    #                  [0, 1, 0, 1, 0, 0, 0, 0, 0, 0],
-    #                  [0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-    #                  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    #                  [0, 0, 0, 0, 1, 0, 0, 1, 0, 0]])
+    # A = graphAna.CFG(inputfile1)
+    # B = graphAna.CFG(inputfile2)
 
-    # B = numpy.array([[1, 1, 0, 0, 1, 0, 0, 0, 1, 0],
-    #                  [1, 0, 0, 0, 0, 0, 1, 0, 0, 0],
-    #                  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    #                  [0, 0, 0, 0, 0, 0, 1, 0, 0, 1],
-    #                  [1, 0, 0, 0, 0, 1, 0, 0, 0, 1],
-    #                  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    #                  [0, 1, 0, 1, 0, 0, 0, 0, 0, 0],
-    #                  [0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-    #                  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    #                  [0, 0, 0, 1, 1, 0, 0, 1, 0, 0]])
+    # diff_map = graphAna.analysor(A.node_stmt_list, B.node_stmt_list)
 
-    A, node_stmt_list_A = graphAna.dot_file_parser(inputfile1)
-    B, node_stmt_list_B = graphAna.dot_file_parser(inputfile2)
+    numpy.set_printoptions(threshold=numpy.inf)  # set output format
 
-    diff_map = graphAna.analysor(node_stmt_list_A, node_stmt_list_B)
+    size = 400
+    A = numpy.zeros(size*size)
+    a = [random.randint(0, size*size)
+         for __ in range(int(size/4))]
+    for idx in a:
+        A[idx] = 1
+    A = A.reshape([size, size])
+    D = normolize_mat(numpy.random.random([size, size]))
+    p = numpy.arange(size)
+    random.shuffle(p)
+    P = numpy.zeros([size, size])
+    for idx in range(size):
+        P[idx][p[idx]] = 1
+    B = P @ A @ P.T
+    # start = time.clock()
+    # Do with diff_map
+    score, result = fast_qap(A, B, D, 60, 1e-7)
+    # elapsed = (time.clock() - start)
 
-    print("score:", fast_qap(A, B, diff_map, 30, 1.0e-7))
+    D_zero = numpy.zeros([size, size])
+    score2, result2 = fast_qap(A, B, D_zero, 60, 1e7)
+    score2 = score2 + numpy.trace(D @ P)
+
+    print("with diff_map: ", score, "D*P: ", numpy.trace(D @ result))
+    # print(result)
+    print("without diff_map: ", score2, "D*P: ",  numpy.trace(D @ result2))
+    # print(result2)
+
     return 0
 
 
